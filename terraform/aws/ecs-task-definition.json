@@ -1,0 +1,39 @@
+[
+  {
+    "name": "app",
+    "image": "docker.l5d.io/buoyantio/emojivoto-web:v11",
+    "essential": true,
+    "portMappings": [
+      {
+        "containerPort": 8080,
+        "hostPort": 8080
+      }
+    ],
+    "logConfiguration": {
+      "logDriver": "awslogs",
+      "options": {
+        "awslogs-group": "${log_group}",
+        "awslogs-region": "${log_region}",
+        "awslogs-stream-prefix": "ecs"
+      }
+    },
+    "environment": [
+      {
+        "name": "WEB_PORT",
+        "value": "8080"
+      },
+      {
+        "name": "EMOJISVC_HOST",
+        "value": "${emojisvc_host}"
+      },
+      {
+        "name": "VOTINGSVC_HOST",
+        "value": "${votingsvc_host}"
+      },
+      {
+        "name": "INDEX_BUNDLE",
+        "value": "dist/index_bundle.js"
+      }
+    ]
+  }
+]
