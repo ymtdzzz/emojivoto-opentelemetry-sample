@@ -1,0 +1,343 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emoji-svc-envoy-cm
+  namespace: emojivoto
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+      - address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 80
+        traffic_direction: INBOUND
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              tracing:
+                provider:
+                  name: envoy.tracers.zipkin
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
+                    collector_cluster: jaeger
+                    collector_endpoint: "/api/v2/spans"
+                    shared_span_context: false
+                    collector_endpoint_version: HTTP_JSON
+              codec_type: AUTO
+              stat_prefix: ingress_http
+              route_config:
+                name: emoji_route
+                virtual_hosts:
+                - name: emoji
+                  domains:
+                  - "*"
+                  routes:
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: local_service
+                    decorator:
+                      operation: emoji
+              http_filters:
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+      - name: local_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        http2_protocol_options: {}
+        load_assignment:
+          cluster_name: local_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: 127.0.0.1
+                    port_value: 8080
+      - name: jaeger
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: jaeger
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: jaeger-collector.observability.svc.cluster.local
+                    port_value: 9411
+    admin:
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8001
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: voting-svc-envoy-cm
+  namespace: emojivoto
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+      - address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 80
+        traffic_direction: INBOUND
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              tracing:
+                provider:
+                  name: envoy.tracers.zipkin
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
+                    collector_cluster: jaeger
+                    collector_endpoint: "/api/v2/spans"
+                    shared_span_context: false
+                    collector_endpoint_version: HTTP_JSON
+              codec_type: AUTO
+              stat_prefix: ingress_http
+              route_config:
+                name: voting_route
+                virtual_hosts:
+                - name: voting
+                  domains:
+                  - "*"
+                  routes:
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: local_service
+                    decorator:
+                      operation: voting
+              http_filters:
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+      - name: local_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        http2_protocol_options: {}
+        load_assignment:
+          cluster_name: local_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: 127.0.0.1
+                    port_value: 8080
+      - name: jaeger
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: jaeger
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: jaeger-collector.observability.svc.cluster.local
+                    port_value: 9411
+    admin:
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8001
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-svc-envoy-cm
+  namespace: emojivoto
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+      - address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 80
+        traffic_direction: INBOUND
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              tracing:
+                provider:
+                  name: envoy.tracers.zipkin
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
+                    collector_cluster: jaeger
+                    collector_endpoint: "/api/v2/spans"
+                    shared_span_context: false
+                    collector_endpoint_version: HTTP_JSON
+              codec_type: AUTO
+              stat_prefix: ingress_http
+              route_config:
+                name: local_service
+                virtual_hosts:
+                - name: backend
+                  domains:
+                  - "*"
+                  routes:
+                  - match:
+                      prefix: "/api/list"
+                    route:
+                      cluster: local_service
+                    decorator:
+                      operation: listShortcodes
+                  - match:
+                      prefix: "/api/vote"
+                    route:
+                      cluster: local_service
+                    decorator:
+                      operation: voteToEmoji
+              http_filters:
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      - address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 9000
+        traffic_direction: OUTBOUND
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              tracing:
+                provider:
+                  name: envoy.tracers.zipkin
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
+                    collector_cluster: jaeger
+                    collector_endpoint: "/api/v2/spans"
+                    shared_span_context: false
+                    collector_endpoint_version: HTTP_JSON
+              codec_type: AUTO
+              stat_prefix: egress_http
+              route_config:
+                name: emoji_service
+                virtual_hosts:
+                - name: emoji
+                  domains:
+                  - "*"
+                  routes:
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: emoji_service
+                    decorator:
+                      operation: listShortcodes
+              http_filters:
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      - address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 9001
+        traffic_direction: OUTBOUND
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              tracing:
+                provider:
+                  name: envoy.tracers.zipkin
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
+                    collector_cluster: jaeger
+                    collector_endpoint: "/api/v2/spans"
+                    shared_span_context: false
+                    collector_endpoint_version: HTTP_JSON
+              codec_type: AUTO
+              stat_prefix: egress_http
+              route_config:
+                name: voting_service
+                virtual_hosts:
+                - name: voting
+                  domains:
+                  - "*"
+                  routes:
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: voting_service
+                    decorator:
+                      operation: voteToEmoji
+              http_filters:
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+      - name: local_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: local_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: 127.0.0.1
+                    port_value: 8080
+      - name: emoji_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        http2_protocol_options: {}
+        load_assignment:
+          cluster_name: emoji_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: emoji-svc-np.emojivoto
+                    port_value: 8080
+      - name: voting_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        http2_protocol_options: {}
+        load_assignment:
+          cluster_name: voting_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: voting-svc-np.emojivoto
+                    port_value: 8080
+      - name: jaeger
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: jaeger
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: jaeger-collector.observability.svc.cluster.local
+                    port_value: 9411
+    admin:
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8001

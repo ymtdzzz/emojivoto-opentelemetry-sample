@@ -27,6 +27,21 @@ spec:
     spec:
       serviceAccountName: voting
       containers:
+      - name: envoy
+        image: envoyproxy/envoy-dev:latest
+        command:
+          - "/usr/local/bin/envoy"
+        args:
+          - "--config-path /etc/envoy/envoy.yaml"
+          - "--service-cluster voting-svc"
+        ports:
+          - containerPort: 80
+            name: app
+          - containerPort: 8001
+            name: envoy-admin
+        volumeMounts:
+          - name: envoy
+            mountPath: /etc/envoy
       - env:
         - name: GRPC_PORT
           value: "8080"
@@ -42,6 +57,10 @@ spec:
         resources:
           requests:
             cpu: 100m
+      volumes:
+        - name: envoy
+          configMap:
+            name: voting-svc-envoy-cm
 ---
 apiVersion: v1
 kind: Service

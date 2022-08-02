@@ -28,13 +28,28 @@ spec:
     spec:
       serviceAccountName: web
       containers:
+      - name: envoy
+        image: envoyproxy/envoy-dev:latest
+        command:
+          - "/usr/local/bin/envoy"
+        args:
+          - "--config-path /etc/envoy/envoy.yaml"
+          - "--service-cluster web-svc"
+        ports:
+          - containerPort: 80
+            name: app
+          - containerPort: 8001
+            name: envoy-admin
+        volumeMounts:
+          - name: envoy
+            mountPath: /etc/envoy
       - env:
         - name: WEB_PORT
           value: "8080"
         - name: EMOJISVC_HOST
-          value: emoji-svc.emojivoto:8080
+          value: 127.0.0.1:9000
         - name: VOTINGSVC_HOST
-          value: voting-svc.emojivoto:8080
+          value: 127.0.0.1:9001
         - name: INDEX_BUNDLE
           value: dist/index_bundle.js
         image: docker.l5d.io/buoyantio/emojivoto-web:v11
@@ -45,6 +60,10 @@ spec:
         resources:
           requests:
             cpu: 100m
+      volumes:
+        - name: envoy
+          configMap:
+            name: web-svc-envoy-cm
 ---
 apiVersion: v1
 kind: Service
@@ -58,4 +77,4 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 8080
+    targetPort: 80
