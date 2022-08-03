@@ -25,6 +25,7 @@ spec:
         app: voting-svc
         version: v11
     spec:
+      shareProcessNamespace: true
       serviceAccountName: voting
       containers:
       - env:
@@ -42,6 +43,28 @@ spec:
         resources:
           requests:
             cpu: 100m
+      - name: emojivoto-voting-instrumentation
+        image: keyval/otel-go-agent:v0.5.4
+        env:
+        - name: OTEL_TARGET_EXE
+          value: /usr/local/bin/emojivoto-voting-svc
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "jaeger-collector.observability.svc.cluster.local:4317"
+        - name: OTEL_SERVICE_NAME
+          value: "emojivoto-voting"
+        securityContext:
+          runAsUser: 0
+          capabilities:
+            add:
+              - SYS_PTRACE
+          privileged: true
+        volumeMounts:
+          - mountPath: /sys/kernel/debug
+            name: kernel-debug
+      volumes:
+        - name: kernel-debug
+          hostPath:
+            path: /sys/kernel/debug
 ---
 apiVersion: v1
 kind: Service

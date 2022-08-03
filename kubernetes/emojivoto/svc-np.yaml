@@ -29,3 +29,19 @@ spec:
   selector:
     app: voting-svc
   type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: web-svc-np
+  namespace: emojivoto
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+    nodePort: 30084
+  selector:
+    app: web-svc
+  type: NodePort
